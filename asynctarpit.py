@@ -2,19 +2,14 @@ import asyncio
 import logging
 import os
 
-# Conf
 HOST = "0.0.0.0"
 PORT = 2222
-DELAY = 10  # Seconds between sending bytes
+DELAY = 10
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
 active_connections: set = set()
 
-# Windows Proactor event loop fires internal transport callbacks that raise
-# ConnectionAbortedError on abrupt disconnects. These get logged by asyncio
-# *before* the exception reaches user-level awaits.  Suppress them here so
-# they don't clutter output.
 _SUPPRESSED = (ConnectionResetError, ConnectionAbortedError, BrokenPipeError)
 
 _orig_exception_handler = None
@@ -23,7 +18,7 @@ _orig_exception_handler = None
 def _quiet_exception_handler(loop, context):
     exc = context.get("exception")
     if isinstance(exc, _SUPPRESSED):
-        return  # swallow known transport-level noise
+        return
     if _orig_exception_handler:
         _orig_exception_handler(loop, context)
     else:
@@ -38,7 +33,6 @@ async def tarpit_handler(reader, writer):
 
     try:
         while True:
-            # Send 1 random byte to prevent client-side timeout
             writer.write(os.urandom(1))
             await writer.drain()
             await asyncio.sleep(DELAY)
